@@ -1,0 +1,7 @@
+langchain-ollama
+langgraph
+pypdf
+pydantic
+streamlit
+typesafe-sdk==0.7.4
+python-dotenv

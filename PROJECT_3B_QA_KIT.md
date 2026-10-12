@@ -1,5 +1,7 @@
 # GenAcademy — Project 3B: Multi-Agent Deal Review Pipeline
 ## Q&A Kit
+
+Includes guidance for V1, V2, and Version Jev.
 ### Available during the project window
 
 ---
@@ -108,6 +110,37 @@ Print a structured report with clear sections: Deal Summary, Compliance Status, 
 
 ---
 
+## Hint 5 — Adding Jev After Synthesis
+
+Version Jev keeps the extractor, three specialists, and synthesizer from V2.
+Every deal then passes through Jev before it can reach human review or the report.
+
+```text
+Extractor → parallel specialists → Synthesizer → Jev
+                                                ├─ human review → report
+                                                └─ report
+```
+
+Think about two separate questions:
+
+- What is the loan decision? The synthesizer supplies it; a human can override it.
+- Does that decision need human review? Jev chooses `HUMAN_REVIEW` or `GENERATE_REPORT`.
+
+Before wiring the graph, consider:
+
+- How will you ensure there is no direct synthesizer-to-report edge that bypasses Jev?
+- What evidence does Jev need: extracted terms, all specialist findings, and the panel decision?
+- What should happen if Jev is uncertain, the key is missing, or its API fails?
+- Where should you checkpoint Jev's result so resuming human review does not repeat the API call?
+- Which escalation thresholds must be enforced by Python, regardless of Jev's answer?
+
+The current implementation sends confidence below 85% and a panel decision of
+`ESCALATE` to human review even when Jev chooses `GENERATE_REPORT`.
+The V2 aggregate `requires_escalation` flag is retained in state, but is not itself
+checked by the Jev router. Compare those rules carefully when reviewing behavior.
+
+---
+
 ## Common Questions
 
 **Q: Does my deal document have to be real?**
@@ -130,6 +163,34 @@ Yes, and it is a strong design choice if your agents do not depend on each other
 
 **Q: What if my pipeline needs to pause for human input?**
 That is a valid and impressive feature. If you are using LangGraph, look into `interrupt()` and `Command(resume=...)`. If not, a simple input prompt works for demonstration purposes.
+
+
+**Q: Does Jev approve or reject the loan?**
+No. In this version its two choices are `HUMAN_REVIEW` and `GENERATE_REPORT`.
+Generating a report can record an approval, conditional approval, or rejection
+from the panel. It does not mean the loan was approved.
+
+**Q: Is the human-review routing decided by an LLM?**
+In V2, Python routes using an escalation flag derived from the LLM panel decision
+and fixed thresholds. In Version Jev, Jev makes the route choice, and Python
+applies confidence and fallback checks before selecting the next node.
+
+**Q: What does 76% Jev confidence mean?**
+It is confidence in Jev's route choice, not the borrower's repayment probability
+or the panel's confidence. Since 76% is below this implementation's 85% cutoff,
+the pipeline pauses for human review. Exactly 85% passes the confidence check,
+but other human-review conditions can still apply.
+
+**Q: Where is the integration, and where do I set the key?**
+The notebook and Streamlit app both import `node_jev_review` and `route_post_jev`
+from `Version Jev/jev_review.py`. Copy `.env.example` to `.env` in that folder
+and set `TYPESAFE_API_KEY`. Keep the key out of notebooks and submitted outputs.
+See [Version Jev setup](Version%20Jev/README.md#setup) for dependencies and Ollama setup.
+
+**Q: Does human review resume automatically?**
+No. Submit a reviewer decision and use `Command(resume=...)` with the same
+checkpoint thread. Jev has already run in a separate node, so it is not called
+again when the human-review node resumes.
 
 ---
 
